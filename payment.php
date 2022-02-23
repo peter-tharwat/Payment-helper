@@ -48,6 +48,15 @@ class PaymentHelper
         }  
         else if($this->method=="tap"){ 
             return $this->tap_payment(); 
+        } 
+        else if($this->method=="fawry"){ 
+            return $this->fawry_payment(); 
+        }  
+        else if($this->method=="kashier"){ 
+            return $this->kashier_payment(); 
+        } 
+        else if($this->method=="hyperpay"){ 
+            return $this->kashier_payment(); 
         }  
     } 
     public function paymob_payment(){ 
@@ -59,8 +68,79 @@ class PaymentHelper
     public function tap_payment(){ 
        return $this->tap_payment_init();
     } 
+    public function fawry_payment(){ 
+       return $this->fawry_payment_init();
+    }
+    public function kashier_payment()
+    {
+        return $this->kashier_payment_init();
+    }
+    public function hyperpay_payment()
+    {
+        return $this->hyperpay_payment_init();
+    }
+    
+    public function kashier_payment_init()
+    {
+
+
+        $uniqid=uniqid();
+        $store_payment=$this->store_payment(
+            $payment_id=$uniqid,
+            $amount=$this->calc_amout_after_transaction("kashier",$this->amount),
+            $source="credit",
+            $process_data= "{}",
+            $currency_code="USD",
+            $status=strtoupper("PENDING"),
+            $note=$this->amount_in_egp
+        ); 
+
+
+        $mid = env('KASHIER_ACCOUNT_KEY'); //your merchant id
+        $amount = $this->amount_in_egp; //eg: 100
+        $currency = "EGP"; //eg: "EGP"
+        $orderId = $uniqid; //eg: 99, your system order ID
+        $secret = env('KASHIER_IFRAME_KEY'); 
+        $path ="/?payment=${mid}.${orderId}.${amount}.${currency}";
+        $hash = hash_hmac( 'sha256' , $path , $secret ,false);
+
+        $rendered_html=view('site-templates.kashier-response',[
+            'mid'=>$mid,
+            'amount'=>$amount,
+            'currency'=>$currency,
+            'orderId'=>$orderId,
+            'path'=>$path,
+            'hash'=>$hash,
+            'redirect_back'=>route('payment.success-kashier')
+        ])->render();
+        
+
+         
+        
+       
+        $res=[
+            'status'=>200,
+            /*'response'=>$response,*/
+            'redirect'=>env('KASHIER_URL')."/payment?mid=".$mid."&orderId=".$orderId."&amount=".$amount."&currency=EGP&hash=".$hash."&merchantRedirect=".route('payment.success-kashier').'&lang=ar',
+            'render'=>$rendered_html,
+            'message'=>'جار تحويلك إلى صفحة الدفع'
+         ];  
+         return $res;
+         return $res;
+         
+    }
+public function kashier_payment_verify($paymentId,$response)
+    {
+        $state=['state'=>null]; 
+        $this->update_payment($paymentId,"DONE"); 
+        $this->set_payment_response($paymentId,$response);
+        $state['state']="DONE";  
+        return $state; 
+
+    }
+
     public function tap_payment_init(){
-        GoSell::setPrivateKey(env("TAP_MODE")=="live"?env("SK_TAP_LIVE"):env("SK_TAP_SANDBOX"));  
+        GoSell::setPrivateKey(env("TAP_MODE")=="live"?env("TAP_SK_LIVE"):env("TAP_SK_SANDBOX"));  
         $charge = GoSell\Charges::create(
             [
               "amount"=> $this->amount,
@@ -117,7 +197,7 @@ class PaymentHelper
          ]; 
     }
     public function tap_payment_verify($paymentId){ 
-        GoSell::setPrivateKey(env("TAP_MODE")=="live"?env("SK_TAP_LIVE"):env("SK_TAP_SANDBOX"));
+        GoSell::setPrivateKey(env("TAP_MODE")=="live"?env("TAP_SK_LIVE"):env("TAP_SK_SANDBOX"));
         $retrieved_charge = GoSell\Charges::retrieve($paymentId);
         $retrieved_charge_array=(array)$retrieved_charge;
         $state=['state'=>null];
@@ -190,7 +270,7 @@ class PaymentHelper
                     "state"=> "NA" 
                 ],
                 "currency"=>"EGP",
-                "integration_id"=>env('PAYMOB_MOOD')=="live"?env('PAYMOB_LIVE_INTEGRATION_ID'):env('PAYMOB_SANDBOX_INTEGRATION_ID') 
+                "integration_id"=>env('PAYMOB_MODE')=="live"?env('PAYMOB_LIVE_INTEGRATION_ID'):env('PAYMOB_SANDBOX_INTEGRATION_ID') 
         ]);
  
          $response_final_final_json=$response_final_final->json();
@@ -317,6 +397,8 @@ class PaymentHelper
 
             return $state;   
     }
+
+
     public static function calc_amout_after_transaction($method,$amount){
         if($method=='paypal'){
             return floatval( ($amount-env('PAYPAL_FIXED_FEE'))/(1+env('PAYPAL_PERCENTAGE_FEE')) );
@@ -324,17 +406,29 @@ class PaymentHelper
             return floatval( ($amount-env('PAYMOB_FIXED_FEE'))/(1+env('PAYMOB_PERCENTAGE_FEE')) );
         }else if($method=='tap'){
             return floatval( ($amount-env('TAP_FIXED_FEE'))/(1+env('TAP_PERCENTAGE_FEE')) );
-        } 
+        }else if($method=='fawry'){
+            return floatval( ($amount-env('FAWRY_FIXED_FEE'))/(1+env('FAWRY_PERCENTAGE_FEE')) );
+        }else if($method=='kashier'){
+            return floatval( ($amount-env('KASHIER_FIXED_FEE'))/(1+env('KASHIER_PERCENTAGE_FEE')) );
+        }else if($method=='hyperpay'){
+            return floatval( ($amount-env('HYPERPAY_FIXED_FEE'))/(1+env('HYPERPAY_PERCENTAGE_FEE')) );
+        }
     }
     public function clac_new_amount($method,$amount){
         if($method=='paypal'){
             return floatval($amount+($amount*env('PAYPAL_PERCENTAGE_FEE'))+env('PAYPAL_FIXED_FEE'));
         } if($method=='paymob'){
             return floatval($amount+($amount*env('PAYMOB_PERCENTAGE_FEE'))+env('PAYMOB_FIXED_FEE'));
-        } else if($method=='tap'){
+        }else if($method=='tap'){
             return floatval($amount+($amount*env('TAP_PERCENTAGE_FEE'))+env('TAP_FIXED_FEE'));
+        }else if($method=='fawry'){
+            return floatval($amount+($amount*env('FAWRY_PERCENTAGE_FEE'))+env('FAWRY_FIXED_FEE'));
+        }else if($method=='kashier'){
+            return floatval($amount+($amount*env('KASHIER_PERCENTAGE_FEE'))+env('KASHIER_FIXED_FEE'));
+        }else if($method=='hyperpay'){
+            return floatval($amount+($amount*env('HYPERPAY_PERCENTAGE_FEE'))+env('HYPERPAY_FIXED_FEE'));
         }
-    } 
+    }  
     public function paypal_payment_init(){ 
 
         $apiContext=new ApiContext(new OAuthTokenCredential(env('PAYPAL_CLIENT_ID'),env('PAYPAL_SECRET')));
@@ -409,6 +503,189 @@ class PaymentHelper
 
         return $res; 
     }
+	
+	public function fawry_payment_init(){
+ 
+
+        $ref_id=uniqid();
+        $process_data=[
+            'FAWRY_MERCHANT'=>$this->FAWRY_MERCHANT,
+            'user_id'=>\Auth::user()->id,
+            'ref_id'=>$ref_id,
+            'item_id'=>1,
+            'item_quantity'=>1,
+            'amount'=>$this->amount,
+            'amount_in_egp'=>$this->amount_in_egp,
+            'FAWRY_SECRET'=>$this->FAWRY_SECRET
+        ]; 
+        $sec=$this->FAWRY_MERCHANT.$ref_id.\Auth::user()->id. 1 . 1 .$this->amount_in_egp.$this->FAWRY_SECRET; 
+        $hashed_sec = hash( 'sha256', $sec  );
+        $payment=$this->store_payment(
+            $payment_id=$hashed_sec,
+            $amount=$this->calc_amout_after_transaction("fawry",$this->amount),
+            $source="credit",
+            $process_data=json_encode($process_data),
+            $currency_code="USD",
+            $status="PENDING"
+        );  
+         $res=[
+            'status'=>'200', 
+            'redirect'=>route('balance'),
+            'append'=>view('site-templates.fawry-response',[
+                'ref_num'=>$payment,
+                'price'=>$this->amount_in_egp,
+                'sec'=>$hashed_sec
+            ])->render(),
+            'message'=>'جار تحويلك إلى صفحة الدفع'
+         ]; 
+        return $res; 
+
+    }
+    public function fawry_payment_verify($nafezly_payment_id){
+        
+
+        $FAWRY_MERCHANT=(env('FAWRY_MODE')=='live'? env('FAWRY_LIVE_MERCHANT'): env('FAWRY_MERCHANT'));
+        $FAWRY_SECRET= (env('FAWRY_MODE')=='live'? env('FAWRY_LIVE_SECRET'): env('FAWRY_SECRET'));
+
+        $hash= hash( 'sha256',$FAWRY_MERCHANT.$nafezly_payment_id.$FAWRY_SECRET );
+        $payment=\App\Balance_summary::where('id',$nafezly_payment_id)->firstOrFail(); 
+        $url = env('FAWRY_MODE')=="live"?env("FAWRY_LIVE_URL"):env("FAWRY_URL"); 
+        $response = Http::get($url
+            .'ECommerceWeb/Fawry/payments/status?merchantCode='.$FAWRY_MERCHANT.'&merchantRefNumber='.$nafezly_payment_id.'&signature='.$hash); 
+        $state=['state'=>null];
+        $local_res=(array)json_decode(($payment->process_data)); 
+
+        if($response->offsetGet('statusCode')==200 && $response->offsetGet('paymentStatus') =="PAID" &&  (int)$local_res['amount_in_egp'] == (int)$response->offsetGet('paymentAmount') ){ 
+
+            $this->update_payment($payment->payment_id,"DONE");
+            $state['state']="DONE";
+        }else if($response->offsetGet('statusCode')!=200){
+            $state['state']="CANCELED";
+        } 
+        $this->set_payment_response($payment->payment_id,$response->body());
+        return $state; 
+    }
+
+
+
+
+
+
+
+    public function hyperpay_payment_init(Request $request)
+    {
+        
+            $order=\App\Models\Order::create([
+                'user_id'=>auth()->user()->id,
+                'course_id'=>$course->id, 
+                'type'=>$type,
+                'status'=>'PENDING' 
+            ]);
+            $payment=\App\Models\Payment::create([
+                'user_id'=>auth()->user()->id,
+                'order_id'=>$order->id,
+                'type'=>$order->type,
+                'status'=>'PENDING' ,
+                'amount'=>$course->price,
+                'source'=>$request->source #CREDIT or MADA
+            ]); 
+ 
+            $url = env('HYPERPAY_URL');
+            $data = "entityId=DB" .
+                        "&amount=".$course->price.
+                        "&currency=SAR".
+                        "&paymentType=".$paymentType.
+                        "&merchantTransactionId=".$order->id.//your unique id from the dataBase
+                        //"&testMode=EXTERNAL".
+                      "&billing.street1=riyadh".
+                      "&billing.city=riyadh".
+                      "&billing.state=riyadh".
+                      "&billing.country=SA".
+                      "&billing.postcode=123456" .
+                      "&customer.email=".auth()->user()->email.
+                      "&customer.givenName=".current(explode(' ',auth()->user()->name)).
+                      "&customer.surname=".array_slice(explode(' ', auth()->user()->name), -1)[0]
+                      ;
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                           'Authorization:Bearer '.env('HYPERPAY_TOKEN')));
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);// this should be set to true in production
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $responseData = curl_exec($ch);
+            if(curl_errno($ch)) {
+                return curl_error($ch);
+            }
+            curl_close($ch);
+
+
+
+            $payment_id=json_decode($responseData)->id;
+            $payment->update(['payment_id'=>$payment_id]);
+
+
+
+            return view('pages.checkout-final',compact('payment_id','payment'));
+
+
+    }
+    public function hyperpay_payment_verify(Request $request){
+        
+        //dd($request->all());
+
+        $payment = \App\Models\Payment::where('payment_id',$request->id)->firstOrFail(); 
+        
+        if($payment->status=="PENDING" && auth()->user()->id == $payment->user_id){
+            $order=\App\Models\Order::where('id',$payment->order_id)->firstOrFail();
+
+          
+            //$entityId="";
+
+            if($payment->source=="CREDIT")
+                $entityId=env('HYPERPAY_CREDIT_ID');
+            else if($payment->source=="MADA")
+                $entityId=env('HYPERPAY_MADA_ID');
+
+
+ 
+
+            $url = env("HYPERPAY_BASE_URL")."/v1/checkouts/".$request['id']."/payment";
+            $url .= "?entityId=".$entityId; 
+
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                           'Authorization: Bearer '.env('HYPERPAY_TOKEN')));
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);// this should be set to true in production
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $responseData = curl_exec($ch);
+            if(curl_errno($ch)) {
+                return curl_error($ch);
+            }
+            curl_close($ch);
+            $final_result= (array)json_decode($responseData,true);
+
+            if($final_result["result"]["code"]=="000.000.000"){
+                $payment->update(['status'=>"DONE",'process_data'=>json_encode(json_decode($responseData,true))]);
+                \App\Models\Order::where('id',$payment->order_id)->update(['status'=>"DONE"]);
+                emotify('success', 'تمت عملية الدفع بنجاح');
+                return redirect('/'); 
+
+            }else{
+                emotify('error', 'حدث خطأ أثناء عملية الدفع راجع البنك الخاص بك '. $final_result["result"]["description"] );
+                return redirect('/');  
+            } 
+            return 0;
+
+
+        } 
+    }
+
  
 
 }
