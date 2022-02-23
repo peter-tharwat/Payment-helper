@@ -39,13 +39,14 @@ Schema::create('orders', function (Blueprint $table) {
 		$table->string('type')->default("ORDER");  # type of order , can be course,product,service,etc
 		$table->unsignedBigInteger('type_id')->nullable(); # the id of the type , for example : if the product id is 10 then type=product & type_id=10
 		$table->string('status')->default("PENDING"); #PENDING,CANCELED,DONE
+		$table->timestamps();
+}
 ```
 
 ### Payments Table
 
 ```bash
-Schema::create('payments', function (Blueprint $table) {
-          
+Schema::create('payments', function (Blueprint $table) {   
     $table->bigIncrements('id');
     $table->unsignedBigInteger('user_id');
     $table->foreign('user_id')->references('id')->on("users")->onDelete('cascade');  
@@ -58,7 +59,6 @@ Schema::create('payments', function (Blueprint $table) {
     $table->string('payment_id')->nullable(); #UNIQUE ID YOU CAN GENERATE ONE , SOMETIMES RETURNED FROM GATEWAY TO TRACE YOUR PAYMENT
     $table->json('process_data')->nullable(); #THE RESPONSE OF SERVER OF GATEWAY
     $table->text('description')->nullable();
-
     $table->timestamps();
 });
 ```
