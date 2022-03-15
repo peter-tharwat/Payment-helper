@@ -129,13 +129,30 @@ class PaymentHelper
          return $res;
          
     }
-public function kashier_payment_verify($paymentId,$response)
+public function kashier_payment_verify(Request $request)
     {
-        $state=['state'=>null]; 
-        $this->update_payment($paymentId,"DONE"); 
-        $this->set_payment_response($paymentId,$response);
-        $state['state']="DONE";  
-        return $state; 
+	
+	if($response["paymentStatus"] == "SUCCESS"){
+        	$queryString = "";
+		$secret=env("KASHIER_IFRAME_KEY");
+
+		foreach ($response as $key => $value) { 
+		    if($key == "signature" || $key== "mode"){
+			continue;
+		    }
+		    $queryString = $queryString."&".$key."=".$value;
+		}
+
+		$queryString = ltrim($queryString, $queryString[0]); 
+		$signature = hash_hmac( 'sha256' , $queryString , $secret ,false);
+	if($signature == $response["signature"]){
+		//done
+	}else{
+		//not done
+	}
+
+	
+ 
 
     }
 
