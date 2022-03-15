@@ -283,12 +283,14 @@ public function kashier_payment_verify($paymentId,$response)
 
          return $res;
     } 
-    public function paymob_payment_verify($paymentId,$response){ 
-        $state=['state'=>null]; 
-        $this->update_payment($paymentId,"DONE"); 
-        $this->set_payment_response($paymentId,$response);
-        $state['state']="DONE";  
-        return $state; 
+    public function paymob_payment_verify(Request $request){ 
+	    
+	$string = $request['amount_cents'].$request['created_at'].$request['currency'].$request['error_occured'].$request['has_parent_transaction'].$request['id'].$request['integration_id'].$request['is_3d_secure'].$request['is_auth'].$request['is_capture'].$request['is_refunded'].$request['is_standalone_payment'].$request['is_voided'].$request['order'].$request['owner'].$request['pending'].$request['source_data_pan'].$request['source_data_sub_type'].$request['source_data_type'].$request['success']; 
+        if(hash_hmac('sha512', $string,env('PAYMOB_HMAC') )){
+		//done
+	}else{
+		// payment not completed
+	} 
     }  
     public function set_payment_response($payment_id,$response){
         $payment=\App\Balance_summary::where([
