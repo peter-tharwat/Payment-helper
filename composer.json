@@ -1,0 +1,15 @@
+{
+    "name": "vendor/payment-helper",
+    "description": "",
+    "license": "",
+    "authors": [],
+    "support": {
+        "issues": "https://github.com/peter-tharwat/Payment-helper/issues",
+        "source": "https://github.com/peter-tharwat/Payment-helper"
+    },
+    "autoload": {
+        "psr-4": {
+            "PaymentHelper\\": "./src"
+        }
+    }
+}
