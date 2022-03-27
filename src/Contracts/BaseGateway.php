@@ -4,4 +4,5 @@ namespace PaymentHelper\Contracts;
 
 interface BaseGateway
 {
+	
 }
