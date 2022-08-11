@@ -389,8 +389,7 @@ class PaymentHelper
             $transaction
         ));
         $counter = 0;
-
-        out_tyr:
+        
             try
             {
                 $payment->create($apiContext);
